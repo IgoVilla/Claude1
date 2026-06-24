@@ -16,6 +16,21 @@ function getEdgePath() {
   throw new Error('Microsoft Edge not found. Install Edge or set BROWSER_PATH in .env');
 }
 
+function getExecutablePath() {
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (process.platform === 'win32') return process.env.BROWSER_PATH || getEdgePath();
+  // Linux: find system Chromium
+  const { execSync } = require('child_process');
+  try {
+    return execSync(
+      'which chromium || which chromium-browser || which google-chrome-stable || which google-chrome',
+      { encoding: 'utf8' }
+    ).trim();
+  } catch {
+    throw new Error('Chromium not found on Linux. Set PUPPETEER_EXECUTABLE_PATH env var.');
+  }
+}
+
 let _browser = null;
 let _launching = null; // mutex to prevent parallel launches
 
@@ -23,7 +38,7 @@ async function getBrowser() {
   if (_browser && _browser.connected) return _browser;
   if (_launching) return _launching; // reuse in-flight launch
 
-  const executablePath = process.env.BROWSER_PATH || getEdgePath();
+  const executablePath = getExecutablePath();
   _launching = puppeteer.launch({
     executablePath,
     headless: true,
